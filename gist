@@ -1,0 +1,87 @@
+#!/usr/bin/python3
+import click
+import json
+import requests
+from pathlib import Path
+
+
+@click.group()
+def cli():
+    pass
+
+
+@click.command()
+@click.option("-d", "--description")
+@click.option("--public/--private", default=True)
+@click.option("--username", envvar="gist_username")
+@click.option("--token", envvar="gist_api_token")
+@click.option("--idonly", default=False, is_flag=True)
+@click.argument("files", type=click.Path(exists=True), nargs=-1)
+def create(description, public, username, token, idonly, files):
+    if len(files) < 1:
+        print("no file specified")
+        return
+
+    if not description:
+        description = Path(files[0]).name
+
+    out = dict()
+    out = {"description": description, "files": dict(), "public": public}
+    for f in files:
+        with open(f, "r") as data:
+            data = data.read()
+        p = Path(f)
+        out["files"][p.name] = {"content": data}
+
+    url = "https://api.github.com/gists"
+    header = {"Accept": "application/vnd.github.v3+json"}
+    response = requests.post(url, headers=header, auth=(username, token),
+                             data=json.dumps(out))
+    response.raise_for_status()
+    response = response.json()
+
+    if idonly:
+        print(response["id"])
+    else:
+        print("Create new gist with id: {}".format(response["id"]))
+        print("Gist HTML Url: {}".format(response["html_url"]))
+
+
+@click.command()
+@click.option("--username", envvar="gist_username")
+@click.option("--token", envvar="gist_api_token")
+@click.argument("gistid")
+def delete(username, token, gistid):
+    url = "https://api.github.com/gists/{}".format(gistid)
+    response = requests.delete(url, auth=(username, token))
+    response.raise_for_status()
+
+
+@click.command()
+@click.option("--username", envvar="gist_username")
+@click.option("--token", envvar="gist_api_token")
+@click.argument("gistid")
+@click.argument("files", nargs=-1)
+def update(username, token, gistid, files):
+    out = {"files": dict()}
+    for f in files:
+        with open(f, "r") as data:
+            data = data.read()
+        p = Path(f)
+        out["files"][p.name] = {"content": data}
+
+    url = "https://api.github.com/gists/{}".format(gistid)
+    header = {"Accept": "application/vnd.github.v3+json"}
+    response = requests.patch(url, headers=header, auth=(username, token),
+                              data=json.dumps(out))
+    response.raise_for_status()
+    response = response.json()
+    print("Updated gist on {}".format(response["html_url"]))
+
+
+cli.add_command(create)
+cli.add_command(delete)
+cli.add_command(update)
+
+if __name__ == '__main__':
+    cli()

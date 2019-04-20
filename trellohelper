@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+import click
+import requests
+
+
+@click.group()
+@click.option("--key", envvar="trello_key")
+@click.option("--token", envvar="trello_token")
+@click.pass_context
+def cli(ctx, key, token):
+    ctx.ensure_object(dict)
+    ctx.obj["key"] = key
+    ctx.obj["token"] = token
+
+
+@click.command()
+@click.pass_context
+def list_boards(ctx):
+    res = requests.get("https://api.trello.com/1/members/me/boards",
+                       params=ctx.obj)
+    res.raise_for_status()
+    content = res.json()
+    for board in content:
+        print("{} {}".format(board["name"], board["id"]))
+
+
+@click.command()
+@click.argument("boardid")
+@click.pass_context
+def list_lists(ctx, boardid):
+    res = requests.get("https://api.trello.com/1/boards/{}/lists".format(boardid),
+                       params={**ctx.obj, "cards": "none", "filter": "open"})
+    res.raise_for_status()
+    content = res.json()
+    for l in content:
+        print("{} {}".format(l["name"], l["id"]))
+
+@click.command()
+@click.argument("listid")
+@click.pass_context
+def list_cards(ctx, listid):
+    res = requests.get("https://api.trello.com/1/lists/{}/cards".format(listid),
+                       params={**ctx.obj, "cards": "none", "filter": "open"})
+    res.raise_for_status()
+    content = res.json()
+    for l in content:
+        print("{} {}".format(l["name"], l["id"]))
+
+
+cli.add_command(list_boards)
+cli.add_command(list_lists)
+cli.add_command(list_cards)
+
+cli()
