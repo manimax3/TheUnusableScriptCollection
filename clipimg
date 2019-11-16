@@ -1,0 +1,3 @@
+#!/bin/bash
+# Saves images from the clipboard to a file
+xclip -se c -t image/png -o > $1.png
